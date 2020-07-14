@@ -1,0 +1,81 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+
+        <style>
+        div.col-lg-8{
+          background-image: url('static/images/ka.png') ;
+          background-position: fixed;
+          background-repeat: no-repeat;
+          background-size: cover;
+        }
+        body{
+            background-color: #fcf5f5;
+        }
+        </style>
+<div class="genius">
+        <!-- Title -->
+        <h1 class="mt-4">Kunal Duran</h1>
+
+        <!-- Author -->
+        <p class="lead">
+          by
+          <a href="#">Kunal Duran</a> &nbsp {{ date }}
+        </p>
+	Author of Python package- <a href="https://pypi.org/project/cricsummary/">cricsummary</a><br>
+	Website- <a href="https://www.kunalduran.com">https://www.kunalduran.com</a><br>
+
+        <hr>
+
+        <!-- Post Content -->
+
+        <p class="lead">
+            <i>Stops businesses from choking themselves on "Paralysis from Analysis" and Help make better decisions in face of Uncertainty.</i>
+        </p>
+
+        <p>
+            <h4>Key Skills</h4><ol>Data Analysis</ol><ol>Machine Learning</ol><ol>Statistical Modeling</ol>
+            <ol><h6>Cherry on top skill : Behavioral Economics</h6></ol>
+        </p>
+        <p>
+            Analysis is art of Decision making in the face of uncertainty on the basis of numerical Data and Risk
+            Calculations.
+        </p>
+
+        <blockquote class="blockquote">
+          <p class="mb-0"><a href="{{ url_for('chat') }}">Ask me Questions</a></p>
+          <footer class="blockquote-footer">Presenting
+            <cite title="Source Title">Duranz_Assistant</cite>
+          </footer>
+        </blockquote>
+
+        <p>
+            Programming and mathematical concepts were not natural to me being a Student of Bachelor of Arts.
+            It all Started when I made a Decision to get skilled(Online courses and YouTube).
+            Learning by Doing has always been a good old strategy that worked. Here are some Projects Related to Machine Learning,
+            Data Analysis, Web Scraping and more.<a href="#"><i> See Projects</i></a>
+            <br><br>
+            <h5>Skills aquired in Last 6 Months</h5>
+            Python Programming OOP, functional programming.
+	{'libraries':[Experience in pandas, numpy, matplotlib, seaborn, sklearn]}<br>
+Projects: Exploratory Data Analysis, Data Visualization, Recommender system, NLP, Machine Learning, Flask.<br>
+
+Statistics: AB Testing, Statistical Modeling, Hypothesis Testing, p-value, z-score
+        </p>
+
+        <p>
+            <h5>The Mission</h5>
+            Cricket is and always will be my first Love. I created this website to Post Blogs Analysing
+            and Providing ideas to improve Cricket (Team and Player performance) with the help of Data.
+            Combining Area of work and Skill with area of Interest is probably the most efficient way to add value.
+            Mission is to be a part of Indian Cricket Team [ as Analyst ;) ].
+        </p>
+
+        <hr>
+
+
+</div>
+
+
+{% endblock content %}
