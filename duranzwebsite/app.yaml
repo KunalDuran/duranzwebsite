@@ -1,0 +1,14 @@
+runtime: python37
+
+
+
+instance_class: F4
+
+
+env_variables:
+    CLOUD_SQL_USERNAME: root
+    CLOUD_SQL_PASSWORD: HathLagaKDikha
+    CLOUD_SQL_DATABASE_NAME: pehla
+    CLOUD_SQL_CONNECTION_NAME: duranzwebsite:asia-south1:duranzwebsitesdb
+    MAIL_USERNAME: kunalduran11@gmail.com
+    MAIL_PASS: Kamalhogya!!

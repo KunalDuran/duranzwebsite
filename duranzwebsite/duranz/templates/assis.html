@@ -1,0 +1,58 @@
+{% extends "layout.html" %}
+
+
+{% block content %}
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@2.0.0/dist/tf.min.js"></script>
+<script>
+let model;
+(async function() {
+    model = await tf.loadGraphModel('static/z_bot_js/model.json');
+    var predictions = model.predict(tf.tensor2d({{ processed_query }}, [1,20]));
+    predictions.print();
+    tf.argMax(predictions).print();
+    })();
+
+</script>
+<p>{{ temp }}</p>
+
+    <div class="content-section">
+       <form method="POST", action="" enctype="multipart/form-data">
+           {{ form.hidden_tag() }}
+           <fieldset class="form-group">
+               <legend class="border-bottom mb-4">Ask about Kunal Duran</legend>
+                <div class="form-group">
+                    {{ form.query.label(class="form-control-label") }}
+
+                    {% if form.query.errors %}
+                        {{ form.query(class="form-control form-control-lg is-invalid", rows='7') }}
+                        <div >
+                            {% for error in form.query.errors %}
+                                <span>{{ error }}</span>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        {{ form.query(class="form-control form-control-lg", rows='2', cols='50',placeholder="Your Query") }}
+                    {% endif %}
+                </div>
+               <div class="form-group">
+                    {{ form.response.label(class="form-control-label") }}
+
+                    {% if form.response.errors %}
+                        {{ form.response(class="form-control form-control-lg is-invalid") }}
+                        <div >
+                            {% for error in form.response.errors %}
+                                <span>{{ error }}</span>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        {{ form.response(class="form-control form-control-lg", rows="5", placeholder="Genius BOT") }}
+                    {% endif %}
+                </div>
+           </fieldset>
+           <div class="form-group">
+                {{ form.submit(class="btn btn-outline-info") }}
+            </div>
+       </form>
+
+    </div>
+{% endblock %}
