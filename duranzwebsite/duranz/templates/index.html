@@ -2,16 +2,63 @@
 
 
 {% block content %}
-{% for a in article %}
-    <article class="media content-section">
-        <div class="media-body">
-            <div class="article-metadata">
-                <a class="mr-2" href="#" >Kunal Duran</a>
-                <small class="text-muted">{{ a[-1] }}</small>
-            </div>
-            <h2 ><a class="article-title text-capitalize" href="{{ url_for('post', post_id=a[0]) }}">{{ a[1] }}</a></h2>
-            <p  class="article-content" style="font-size:19px">{{ a[2] }}</p>
+<section class="jumbotron text-center">
+    <div class="container">
+        <h1 class="jumbotron-heading">Welcome to Duranz</h1>
+        <p class="lead text-muted">Providing Solutions for Flask API Development | Machine Learning | Data Analysis</p>
+    </div>
+</section>
+ <!-- Marketing messaging and featurettes
+      ================================================== -->
+      <!-- Wrap the rest of the page in another container to center all the content. -->
+
+      <div class="container marketing">
+
+
+        <!-- START THE FEATURETTES -->
+
+        <hr class="featurette-divider">
+
+        <div class="row featurette">
+          <div class="col-md-7">
+            <h2 class="featurette-heading">Flask Framework for your Projects <span class="text-muted">It's Fast</span></h2>
+            <p class="lead">Complete Logic handling for Machine Learning Models with Flask Backend. Front-End Handled with
+            HTML, CSS, Bootstrap 4</p>
+          </div>
+          <div class="col-md-5">
+            <img class="featurette-image img-fluid mx-auto"
+                 src="https://source.unsplash.com/1600x900/?programmer" data-src="holder.js/500x500/auto" alt="Generic placeholder image">
+          </div>
         </div>
-    </article>
-{% endfor %}
+
+        <hr class="featurette-divider">
+
+        <div class="row featurette">
+          <div class="col-md-7 order-md-2">
+            <h2 class="featurette-heading">Got Data, We got Insights <span class="text-muted">See for yourself.</span></h2>
+            <p class="lead">Building models with Data for provided Usecases. Watch the power of Machine Learning and Deep Learning</p>
+          </div>
+          <div class="col-md-5 order-md-1">
+            <img class="featurette-image img-fluid mx-auto" src="https://source.unsplash.com/1600x900/?programming"
+                 data-src="#" alt="Generic placeholder image">
+          </div>
+        </div>
+
+        <hr class="featurette-divider">
+
+        <div class="row featurette">
+          <div class="col-md-7">
+            <h2 class="featurette-heading">Automate Repetetive Tasks. <span class="text-muted">Be efficient</span></h2>
+            <p class="lead">With the Power of Python Programming Language automate the daily tasks and save valuable time.
+            Machine Learning at your disposal for doing task with human like accuracy</p>
+          </div>
+          <div class="col-md-5">
+            <img class="featurette-image img-fluid mx-auto"
+                 src="https://source.unsplash.com/1600x900/?coding" data-src="holder.js/500x500/auto" alt="Generic placeholder image">
+          </div>
+        </div>
+
+        <hr class="featurette-divider">
+      </div>
+        <!-- /END THE FEATURETTES -->
 {% endblock %}

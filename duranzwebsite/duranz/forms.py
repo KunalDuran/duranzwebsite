@@ -2,36 +2,13 @@ from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileAllowed
 from wtforms import StringField, PasswordField,  SubmitField, TextAreaField, BooleanField
 from wtforms.validators import DataRequired, Length, Email, EqualTo, ValidationError
-
-
-class Chatbot(FlaskForm):
-    query = TextAreaField('Type Here', validators=[DataRequired()])
-    response = TextAreaField('Duranz Assistant Response')
-    submit = SubmitField('Ask')
-
-
-class WhatsappUpload(FlaskForm):
-    chat = FileField('Upload file', validators=[FileAllowed(['txt'])])
-    submit = SubmitField('Upload chats')
-
-
-# class LoginForm(FlaskForm):
-#     email = StringField('Email', validators=[DataRequired(), Email()])
-#     password = PasswordField('Password', validators=[DataRequired(), Length(min=2, max=30)])
-#     remember = BooleanField('Remember Me')
-#     submit = SubmitField('Sign In')
-
-
-class Content(FlaskForm):
-    title = StringField('Title', validators=[DataRequired()])
-    content = TextAreaField('Content', validators=[DataRequired()])
-    submit = SubmitField('Post')
     
     
-class RepairRequestForm(FlaskForm):
-    email = StringField('Enter Email ID', validators=[DataRequired()])
-    product = StringField('Products to Repair', validators=[DataRequired()])
-    detail = TextAreaField('Details of the Damage', validators=[DataRequired()])
-    address = TextAreaField('Your Address', validators=[DataRequired()])
+class ProjectRequestForm(FlaskForm):
+    name = StringField('Enter Your/Company Name', validators=[DataRequired()])
+    email = StringField('Enter Email ID', validators=[Email(), DataRequired()])
+    project = StringField('Type of Project', validators=[DataRequired()])
+    detail = TextAreaField('Details of the Project', validators=[DataRequired()])
+    sample_file = FileField('Upload Sample Files')
+    submit = SubmitField('Request')
 
-    submit = SubmitField('Request Repair')
