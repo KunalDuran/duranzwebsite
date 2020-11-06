@@ -5,8 +5,8 @@ from email.message import EmailMessage
 
 def send_it(sub, content):
 
-    ID = os.environ.get('MAIL_USERNAME')
-    PASS = os.environ.get('MAIL_PASS')
+    ID = 'kunalduran11@gmail.com'# os.environ.get('MAIL_USERNAME')
+    PASS = 'Kamalhogya!!' #os.environ.get('MAIL_PASS')
     msg = EmailMessage()
     msg.set_content(content)
 

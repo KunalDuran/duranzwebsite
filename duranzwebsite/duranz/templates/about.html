@@ -1,0 +1,52 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<section>
+<div class="container">
+    <div class="pt-4 pb-4">
+        <div class="row">
+            <div class="col">
+                <p class="pt-4 mb-2 display-1">
+                Kunal Duran.
+                </p>
+                <p class="display-7">
+               [ Python Programmer ]<br><br>
+                Top Skill:
+                <ol> 
+                    <li>Python Programming</li>
+                    <li>Machine Learning</li>
+                    <li>Backend (Flask)</li>   
+                </ol>
+                
+                Experienced in Working with data and creating APIs for Machine Learning Models.<br>
+                Economics Graduate, Started Programming in oct 2019.
+
+                </p>
+                <p> Currently Living: Jaipur, Rajasthan.</p>
+                <p></p>
+            </div>
+            <div class="col">
+            <img src="{{ url_for('static', filename='images/kunal.png') }}"  media-simple="true">
+            </div>
+        </div>
+    </div>
+</div>
+</section>
+
+<!-- <section class="">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="">
+                <div class=""><a class="btn btn-black-outline display-4" href="#">
+                    
+                    SEND ME A NOTE</a></div>
+            </div>
+            <div class="media-container-column title col-12 col-lg-7 col-md-6">
+                <h2 class="align-right mbr-bold mbr-white pb-3 mbr-fonts-style display-2"><span style="font-weight: normal;">
+                    CONTACT ME</span></h2>
+                
+            </div>
+        </div>
+    </div>
+</section> -->
+{% endblock content %}
