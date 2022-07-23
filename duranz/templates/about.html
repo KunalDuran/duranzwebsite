@@ -1,0 +1,53 @@
+{% extends "layout.html" %}
+{% set active_page = 'about' %}
+
+{% block content %}                                                                         
+
+<div class="bg-light">
+    <div class="container py-5">
+        <div class="row align-items-center">
+            <div class="col-lg-6">
+                <p class="
+                mb-2 display-1">
+                    Kunal Duran.
+                </p>
+                <p class="display-7">[ Python Programmer ]</p>
+                <p class="display-7">
+                    
+                    Top Skills:
+                <ol>
+                    <li>Python Programming</li>
+                    <li>Machine Learning</li>
+                    <li>Backend (Flask)</li>
+                </ol>
+
+                <p>Experienced in Working with data and creating APIs for Machine Learning Models.</p> 
+                Economics Graduate.
+
+                </p>
+                <p> Currently Living: Jaipur, Rajasthan.</p>
+                <p>Work Experience: 
+                <ol>
+                    <li class="list-items">Built End-to-End Data Science Projects.
+                        <ul>
+                            <li>Data Exploration</li>
+                            <li>Exploratory Data Analysis</li>
+                            <li>Feature Engineering</li>
+                            <li>Model Creation</li>
+                            <li>API creation with Flask</li>
+                            <li>Model Deployment on Cloud</li>
+                        </ul>
+
+                    </li>
+                    <li class="list-items">Web Scrapers</li>
+                    <li class="list-items">Python Scripts for Automation</li>
+                    <li class="list-items">Front-end Web Development with Bootstrap</li>
+                    <li class="list-items">Python Code Review</li>
+                </ol></p>
+            </div>
+            <div class="col-lg-6  d-lg-block"><img src="{{ url_for('static', filename='images/kunal.png') }}" alt=""
+                    class="img-fluid"></div>
+        </div>
+    </div>
+</div>
+{% endblock content %}

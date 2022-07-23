@@ -5,19 +5,23 @@
 
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-  <meta name="description" content="">
-  <meta name="author" content="">
-
-  <title>Cricket-Blogs</title>
+  <title>
+    {% if title %}
+      {{ title }}
+    {% else %}
+    Duranz
+    {% endif %}
+  </title>
 
   <!-- Bootstrap core CSS -->
   <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='main.css') }}">
 
   <!-- Custom CSS -->
    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='custom.css') }}">
-</head>
+  </head>
 
 <body>
+
 
   <!-- Navigation -->
   <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
@@ -28,27 +32,22 @@
       </button>
       <div class="collapse navbar-collapse" id="navbarResponsive">
         <ul class="navbar-nav ml-auto">
-          <li class="nav-item active">
+          <li class="nav-item {{ 'active' if active_page == 'index' }}">
             <a class="nav-link" href="{{ url_for('home') }}">Home
               <span class="sr-only">(current)</span>
             </a>
           </li>
-          <li class="nav-item">
-            <a class="nav-link" href="{{ url_for('project') }}">Projects</a>
+          <li class="nav-item {{ 'active' if active_page == 'project' }}">
+            <a class="nav-link" href="{{ url_for('playerstats') }}">Player-Stats</a>
           </li>
-          <li class="nav-item">
+          <li class="nav-item {{ 'active' if active_page == 'about' }}">
             <a class="nav-link" href="{{ url_for('about') }}">About</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="{{ url_for('home') }}">Services</a>
           </li>
         </ul>
       </div>
     </div>
   </nav>
   <div class="container">
-
-    <div class="row">
       <div class="col-lg-8">
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
@@ -59,84 +58,20 @@
             {% endfor %}
           {% endif %}
         {% endwith %}
-        {%  block content  %} {% endblock %}
       </div>
-      <div class="col-md-4">
-
-        <!-- Search Widget -->
-        <div class="card my-4">
-          <h5 class="card-header">Search</h5>
-          <div class="card-body">
-            <div class="input-group">
-              <input type="text" class="form-control" placeholder="Search for...">
-              <span class="input-group-btn">
-                <button class="btn btn-secondary" type="button">Go!</button>
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Categories Widget -->
-        <div class="card my-4">
-          <h5 class="card-header">Categories</h5>
-          <div class="card-body">
-            <div class="row">
-              <div class="col-lg-6">
-                <ul class="list-unstyled mb-0">
-                  <li>
-                    <a href="{{ url_for('home') }}">Repair</a>
-                  </li>
-                  <li>
-                    <a href="#">Buy</a>
-                  </li>
-                  <li>
-                    <a href="#">Analysis</a>
-                  </li>
-                </ul>
-              </div>
-              <div class="col-lg-6">
-                <ul class="list-unstyled mb-0">
-                  <li>
-                    <a href="{{ url_for('home') }}">Write Blogs</a>
-                  </li>
-                  <li>
-                    <a href="{{ url_for('home') }}">Read Blogs</a>
-                  </li>
-                  <li>
-                    <a href="#">Tips/Tutorials</a>
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Side Widget -->
-        <div class="card my-4">
-          <h5 class="card-header">Help Us Improve</h5>
-          <div class="card-body">
-            Please share your thoughts ideas and feedback! Your opinion is valuable for us and will directly serve whole cricket community.
-          </div>
-        </div>
-
-      </div>
-  <!-- /.container -->
-    </div>
-    <!-- /.row -->
-
   </div>
-  <!-- Footer -->
-  <footer class="py-5 bg-dark">
-    <div class="container">
-      <p class="m-0 text-center text-white">
-        <a href="https://www.facebook.com/kunal.duran" class="fa"><img src="static\images\facebook.jpg" height="50px" alt="Facebook"></a>
-        <a href="https://twitter.com/duran_kunal" class="fa"><img src="static\images\twitter.jpg" height="50px" alt="Twitter"></a>
-        <a href="https://in.linkedin.com/in/kunal-duran-35126310a" class="fa"><img src="static\images\linkedin.jpg" height="50px" alt="Linkedin"></a>
-        <a href="https://www.youtube.com/channel/UCkgRLEX6jFrYOGCLJEGK9nw" class="fa"><img src="static\images\youtube.jpg" height="50px" alt="YouTube"></a>
-        <a href="#" class="fa"><img src="static\images\whatsapp.jpg" height="50px" alt="Whatsapp"></a>
+  {%  block content  %} {% endblock %}
+  <footer class="py-1 container-fluid bg-dark fixed-bottom">
+    <div class="row justify-content-center">
+      <p class="m-0 p-0 text-center text-white">
+        <a href="https://www.facebook.com/kunal.duran" class="fa" target="_blank"><img src="static\images\facebook.png" height="50px" alt="Facebook"></a>
+        <a href="https://twitter.com/duran_kunal" class="fa" target="_blank"><img src="static\images\twitter.png" height="50px" alt="Twitter"></a>
+        <a href="https://in.linkedin.com/in/kunal-duran-35126310a" class="fa" target="_blank"><img src="static\images\linkedin.png" height="50px" alt="Linkedin"></a>
+        <a href="https://www.youtube.com/channel/UCkgRLEX6jFrYOGCLJEGK9nw" class="fa" target="_blank"><img src="static\images\youtube.png" height="50px" alt="YouTube"></a>
+        <a href="mailto: kunalduran13@gmail.com" class="fa" target="_blank"><img src="static\images\gmail.png" height="50px" alt="Mail"></a>
+        <a href="https://github.com/KunalDuran" class="fa" target="_blank"><img src="static\images\github.png" height="50px" alt="GitHub"></a>
       </p>
     </div>
-    <!-- /.container -->
   </footer>
 
   <!-- Bootstrap core JavaScript -->
