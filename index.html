@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kunal Duran | Backend Engineer</title>
+    <title>Kunal Duran | Backend & IoT Systems Engineer</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap" rel="stylesheet">
     <style>
@@ -52,6 +52,50 @@
         .personal-info {
             text-align: center;
         }
+
+        .featured {
+            border: 1px solid #2a2a2a;
+            border-left: 3px solid #7dc26b;
+            border-radius: 4px;
+            padding: 1.25rem 1.5rem;
+            background-color: #161616;
+            margin-bottom: 1rem;
+        }
+
+        .featured h4 {
+            color: #fff;
+            margin-bottom: 0.5rem;
+        }
+
+        .featured .tagline {
+            color: #999;
+            font-size: 0.9rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .module-list li {
+            margin-bottom: 0.6rem;
+        }
+
+        .module-list .module-name {
+            color: #fff;
+        }
+
+        .badge-link {
+            display: inline-block;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 0.15rem 0.5rem;
+            font-size: 0.75rem;
+            margin-right: 0.4rem;
+            margin-top: 0.4rem;
+            color: #aaa;
+        }
+
+        .badge-link:hover {
+            border-color: #7dc26b;
+            color: #7dc26b;
+        }
     </style>
 </head>
 
@@ -65,29 +109,75 @@
                     </div>
                     <div>
                         <h1 class="mt-3">Kunal Duran</h1>
-                        <p class="lead">Backend Engineer | IoT & Golang Enthusiast</p>
+                        <p class="lead">Backend Engineer | IoT Fleet & Systems Infrastructure (Go)</p>
                     </div>
                 </header>
-        
+
                 <section class="about mb-5">
-                    <p>Hi, I'm Kunal, a Backend Engineer with 4 years of experience building scalable systems and APIs using <strong>Golang</strong>, <strong>Python</strong>, and <strong>JavaScript</strong>. I’m passionate about <strong>IoT</strong>, drone technology, and contributing to <strong>open-source</strong> projects. I love exploring the depths of computer science and optimizing systems for performance and efficiency.</p>
+                    <p>Hi, I'm Kunal — a Backend Engineer with 5 years of experience building scalable systems and APIs in
+                        <strong>Golang</strong>, <strong>Python</strong>, and <strong>JavaScript</strong>. My recent focus
+                        is <strong>IoT fleet infrastructure</strong>: telemetry pipelines, NAT-traversal tunneling, live
+                        video streaming, and OTA update systems for fleets of embedded Linux devices (Raspberry Pi,
+                        Jetson). I publish reusable Go modules from this work and care about clear data flows, resilient
+                        networking, and observability over magic.</p>
                 </section>
-        
+
+                <section class="featured-project mb-5">
+                    <h3>Featured: Dronnayak</h3>
+                    <div class="featured">
+                        <h4>IoT Fleet Management Platform (Go)</h4>
+                        <p class="tagline">A self-hosted "operations layer" for fleets of drone companion computers —
+                            and more broadly, any fleet of Linux IoT devices.</p>
+                        <ul class="mb-2">
+                            <li>Live MAVLink telemetry streaming + fleet/device dashboard</li>
+                            <li>WebRTC live video streaming from Raspberry Pi devices</li>
+                            <li>Remote command execution, diagnostics & log access</li>
+                            <li>Self-update (OTA) with SHA-256 verification</li>
+                            <li>Reverse-tunnel relay for devices behind NAT/CGNAT</li>
+                            <li>One-line installer scripts for zero-touch device provisioning</li>
+                        </ul>
+                        <a href="https://dronnayak.com" target="_blank" class="badge-link">https://dronnayak.com</a>
+                    </div>
+                </section>
+
+                <section class="open-source mb-5">
+                    <h3>Open Source Go Modules</h3>
+                    <ul class="list-unstyled module-list">
+                        <li>
+                            <span class="module-name">gowsrelay</span> — a lightweight, self-hosted reverse-tunnel relay
+                            (a small ngrok/Tailscale-style relay for making behind-NAT devices reachable).
+                            <br><a href="https://github.com/KunalDuran/gowsrelay" target="_blank" class="badge-link">github.com/KunalDuran/gowsrelay</a>
+                        </li>
+                        <li>
+                            <span class="module-name">webrtcast</span> — a WebRTC streaming toolkit for embedded Linux
+                            devices, used to stream live camera feeds from low-power hardware.
+                            <br><a href="https://github.com/KunalDuran/webrtcast" target="_blank" class="badge-link">github.com/KunalDuran/webrtcast</a>
+                        </li>
+                        <li>
+                            <span class="module-name">devstat</span> — a cross-platform device stats library for Go
+                            (CPU, RAM, disk, temperature) used for fleet health monitoring.
+                            <br><a href="https://github.com/KunalDuran/devstat" target="_blank" class="badge-link">github.com/KunalDuran/devstat</a>
+                        </li>
+                    </ul>
+                </section>
+
                 <section class="skills mb-5">
                     <h3>Skills</h3>
                     <ul class="list-unstyled">
                         <li>Golang, Python, JavaScript</li>
-                        <li>API Development, Scalable Systems</li>
-                        <li>Cloud & IoT: AWS, Docker, MQTT, WebSockets</li>
-                        <li>Databases: MySQL, MongoDB, Redis</li>
+                        <li>Distributed Systems: WebSockets, WebRTC, reverse tunnels & NAT traversal, MQTT</li>
+                        <li>IoT & Embedded: Raspberry Pi, Jetson Nano, MAVLink / drone telemetry, OTA updates</li>
+                        <li>API Development & Scalable Systems</li>
+                        <li>Cloud & Infra: AWS, Docker, CI/CD</li>
+                        <li>Databases: MongoDB, MySQL, Redis</li>
                     </ul>
                 </section>
-        
+
                 <section class="projects mb-5">
-                    <h3>Notable Projects</h3>
+                    <h3>Other Projects</h3>
                     <ul class="list-unstyled">
-                        <li><strong>GTG Network:</strong> CLI tool for processing large-scale sports data</li>
                         <li><strong>emvirt Solutions:</strong> IoT platform for managing embedded systems like Raspberry Pi & Jetson Nano</li>
+                        <li><strong>GTG Network:</strong> CLI tool for processing large-scale sports data</li>
                         <li><strong>Open-source:</strong> Cricket data analysis Python library on PyPI</li>
                     </ul>
                 </section>
@@ -105,9 +195,9 @@
                     <h3 class="section-header">Interests</h3>
                     <p>I'm always eager to learn more about:</p>
                     <ul>
-                        <li>IoT & Drone Technologies</li>
+                        <li>IoT & Drone Fleet Infrastructure</li>
+                        <li>Networking: Tunnels, NAT Traversal, WebRTC</li>
                         <li>Open-source Contributions</li>
-                        <li>Advanced Computer Science Concepts</li>
                         <li>Golang & High-performance Systems</li>
                     </ul>
                 </section>
