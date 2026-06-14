@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>webrtcast · broadcast</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0;
+    font: 15px/1.4 system-ui, sans-serif;
+    background: #111;
+    color: #eee;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    padding: 20px;
+  }
+  h1 { font-size: 18px; margin: 0; font-weight: 600; }
+  a { color: #9ad; }
+  .wrap { width: min(820px, 100%); display: flex; flex-direction: column; gap: 14px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  input {
+    flex: 1;
+    min-width: 160px;
+    padding: 8px 10px;
+    border: 1px solid #444;
+    border-radius: 6px;
+    background: #1c1c1c;
+    color: #eee;
+    font: inherit;
+  }
+  button {
+    padding: 8px 16px;
+    border: 0;
+    border-radius: 6px;
+    background: #2d7;
+    color: #042;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:disabled { opacity: .5; cursor: default; }
+  button.stop { background: #e55; color: #300; }
+  button.ghost { background: #333; color: #eee; }
+  .videos { display: grid; grid-template-columns: 1fr; gap: 12px; }
+  @media (min-width: 640px) { .videos { grid-template-columns: 2fr 1fr; } }
+  video {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: #000;
+    border-radius: 8px;
+  }
+  .label { font-size: 12px; color: #888; margin: 0 0 4px; }
+  .topic-box {
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px;
+    border: 1px solid #2d7;
+    border-radius: 8px;
+    background: #122;
+  }
+  .topic-box.show { display: flex; }
+  .code {
+    font: 600 24px/1 ui-monospace, monospace;
+    letter-spacing: 3px;
+    color: #2d7;
+    user-select: all;
+  }
+  .wa { background: #25d366; color: #032; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 6px; font-weight: 600; }
+  #status { font-size: 13px; color: #9ad; min-height: 1.4em; }
+  #status.error { color: #f88; }
+  .nav { font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>webrtcast · broadcast</h1>
+
+  <div class="row">
+    <input id="signal" value="wss://dashboard.dronnayak.com/ws">
+    <button id="start">Start broadcast</button>
+    <button id="stop" class="stop" disabled>Stop</button>
+  </div>
+
+  <div id="topicBox" class="topic-box">
+    <div class="label">Share this topic code with your viewer:</div>
+    <div id="code" class="code"></div>
+    <div class="row">
+      <button id="copy" class="ghost">Copy link</button>
+      <a id="whatsapp" class="wa" target="_blank" rel="noopener">Share on WhatsApp</a>
+    </div>
+  </div>
+
+  <div class="videos">
+    <div>
+      <p class="label">You (broadcasting)</p>
+      <video id="local" autoplay playsinline muted></video>
+    </div>
+    <div>
+      <p class="label">Viewer (if sharing)</p>
+      <video id="remote" autoplay playsinline></video>
+    </div>
+  </div>
+
+  <div class="row">
+    <button id="cam" class="ghost" disabled>Camera off</button>
+    <button id="mic" class="ghost" disabled>Mic off</button>
+  </div>
+
+  <div id="status">Idle.</div>
+  <div class="nav"><a href="view.html">→ Open the viewer page</a></div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const signalInput = $("signal");
+const startBtn = $("start");
+const stopBtn  = $("stop");
+const copyBtn  = $("copy");
+const camBtn   = $("cam");
+const micBtn   = $("mic");
+const waLink   = $("whatsapp");
+const topicBox = $("topicBox");
+const codeEl   = $("code");
+const localV   = $("local");
+const remoteV  = $("remote");
+const statusEl = $("status");
+
+let ws = null;
+let pc = null;
+let localStream = null;
+let topic = "";
+
+const ICE = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
+
+function setStatus(msg, isError = false) {
+  statusEl.textContent = msg;
+  statusEl.classList.toggle("error", isError);
+  (isError ? console.error : console.log)("[broadcast]", msg);
+}
+
+function setRunning(on) {
+  startBtn.disabled = on;
+  stopBtn.disabled = !on;
+  signalInput.disabled = on;
+  camBtn.disabled = !on;
+  micBtn.disabled = !on;
+}
+
+// Random, easy-to-read topic code (no ambiguous chars).
+function makeTopic() {
+  const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  let s = "";
+  for (let i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+}
+
+// Non-trickle: collect all candidates before sending the SDP so it is
+// self-contained (matches the example viewer / Go broadcaster).
+function waitForIceGathering(pc) {
+  if (pc.iceGatheringState === "complete") return Promise.resolve();
+  return new Promise((resolve) => {
+    const check = () => {
+      if (pc.iceGatheringState === "complete") {
+        pc.removeEventListener("icegatheringstatechange", check);
+        resolve();
+      }
+    };
+    pc.addEventListener("icegatheringstatechange", check);
+  });
+}
+
+async function parseSignal(data) {
+  const text = typeof data === "string" ? data : await data.text();
+  try { return JSON.parse(text); } catch { return null; }
+}
+
+function viewerLink() {
+  return new URL("view.html?topic=" + topic, location.href).href;
+}
+
+async function start() {
+  const base = signalInput.value.trim();
+  if (!base) { setStatus("Enter a signalling URL.", true); return; }
+
+  setRunning(true);
+  setStatus("Requesting camera & microphone…");
+
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    localV.srcObject = localStream;
+  } catch (err) {
+    setStatus("Could not access camera/mic: " + err, true);
+    setRunning(false);
+    return;
+  }
+
+  topic = makeTopic();
+  codeEl.textContent = topic;
+  const link = viewerLink();
+  const msg = `Join my live video. Topic code: ${topic}\n${link}`;
+  waLink.href = "https://wa.me/?text=" + encodeURIComponent(msg);
+  topicBox.classList.add("show");
+
+  // Publisher side of the topic-based relay.
+  const url = base + (base.includes("?") ? "&" : "?") + "topic=" + encodeURIComponent(topic) + "&role=producer";
+  ws = new WebSocket(url);
+
+  ws.onopen = () => setStatus("Live. Waiting for a viewer to join with code " + topic + "…");
+
+  ws.onmessage = async (ev) => {
+    const sig = await parseSignal(ev.data);
+    if (!sig || sig.type !== "offer") return;
+    await handleOffer(sig.sdp);
+  };
+
+  ws.onerror = () => setStatus("Signalling socket error.", true);
+  ws.onclose = () => { if (!stopBtn.disabled) setStatus("Signalling socket closed."); };
+
+  updateTrackButtons();
+}
+
+// A viewer sent us an offer — (re)build the peer connection and answer it.
+async function handleOffer(sdp) {
+  setStatus("Viewer connecting. Answering…");
+  if (pc) { try { pc.close(); } catch {} }
+
+  pc = new RTCPeerConnection(ICE);
+
+  pc.ontrack = (e) => { remoteV.srcObject = e.streams[0]; };
+
+  pc.onconnectionstatechange = () => {
+    setStatus("Viewer connection: " + pc.connectionState);
+    if (["failed", "disconnected", "closed"].includes(pc.connectionState)) {
+      remoteV.srcObject = null;
+      setStatus("Viewer left. Waiting for a new viewer (code " + topic + ")…");
+    }
+  };
+
+  try {
+    await pc.setRemoteDescription({ type: "offer", sdp });
+    // Add our tracks AFTER setRemoteDescription so they reuse the
+    // transceivers the viewer declared (recvonly → we answer sendonly).
+    localStream.getTracks().forEach((t) => pc.addTrack(t, localStream));
+
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    await waitForIceGathering(pc);
+
+    ws.send(JSON.stringify({ type: "answer", sdp: pc.localDescription.sdp }));
+    setStatus("Answer sent. Establishing media…");
+  } catch (err) {
+    setStatus("Failed to answer viewer: " + err, true);
+  }
+}
+
+function updateTrackButtons() {
+  if (!localStream) return;
+  const v = localStream.getVideoTracks()[0];
+  const a = localStream.getAudioTracks()[0];
+  camBtn.textContent = v && v.enabled ? "Camera off" : "Camera on";
+  micBtn.textContent = a && a.enabled ? "Mic off" : "Mic on";
+}
+
+function toggleTrack(kind) {
+  if (!localStream) return;
+  const track = kind === "video" ? localStream.getVideoTracks()[0] : localStream.getAudioTracks()[0];
+  if (track) track.enabled = !track.enabled;
+  updateTrackButtons();
+}
+
+function stop() {
+  setStatus("Broadcast stopped.");
+  if (ws) { try { ws.close(); } catch {} ws = null; }
+  if (pc) { try { pc.close(); } catch {} pc = null; }
+  if (localStream) { localStream.getTracks().forEach((t) => t.stop()); localStream = null; }
+  localV.srcObject = null;
+  remoteV.srcObject = null;
+  topicBox.classList.remove("show");
+  setRunning(false);
+}
+
+startBtn.addEventListener("click", start);
+stopBtn.addEventListener("click", stop);
+camBtn.addEventListener("click", () => toggleTrack("video"));
+micBtn.addEventListener("click", () => toggleTrack("audio"));
+copyBtn.addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(viewerLink());
+    copyBtn.textContent = "Copied!";
+    setTimeout(() => (copyBtn.textContent = "Copy link"), 1500);
+  } catch { setStatus("Copy failed — select the code manually.", true); }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>webrtcast · view</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0;
+    font: 15px/1.4 system-ui, sans-serif;
+    background: #111;
+    color: #eee;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    padding: 20px;
+  }
+  h1 { font-size: 18px; margin: 0; font-weight: 600; }
+  a { color: #9ad; }
+  .wrap { width: min(820px, 100%); display: flex; flex-direction: column; gap: 14px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  input {
+    flex: 1;
+    min-width: 140px;
+    padding: 8px 10px;
+    border: 1px solid #444;
+    border-radius: 6px;
+    background: #1c1c1c;
+    color: #eee;
+    font: inherit;
+  }
+  input#topic { flex: 0 0 140px; text-transform: uppercase; letter-spacing: 2px; font-weight: 600; }
+  button {
+    padding: 8px 16px;
+    border: 0;
+    border-radius: 6px;
+    background: #2d7;
+    color: #042;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:disabled { opacity: .5; cursor: default; }
+  button.stop { background: #e55; color: #300; }
+  button.ghost { background: #333; color: #eee; }
+  label.check { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: #cde; }
+  .videos { display: grid; grid-template-columns: 1fr; gap: 12px; }
+  @media (min-width: 640px) { .videos { grid-template-columns: 2fr 1fr; } }
+  video {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: #000;
+    border-radius: 8px;
+  }
+  .label { font-size: 12px; color: #888; margin: 0 0 4px; }
+  #localWrap { display: none; }
+  #localWrap.show { display: block; }
+  #status { font-size: 13px; color: #9ad; min-height: 1.4em; }
+  #status.error { color: #f88; }
+  .nav { font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>webrtcast · view</h1>
+
+  <div class="row">
+    <input id="signal" value="wss://dashboard.dronnayak.com/ws">
+    <input id="topic" placeholder="CODE" maxlength="12">
+  </div>
+  <div class="row">
+    <label class="check"><input type="checkbox" id="share"> Share my camera &amp; mic</label>
+    <button id="connect">Connect</button>
+    <button id="disconnect" class="stop" disabled>Disconnect</button>
+  </div>
+
+  <div class="videos">
+    <div>
+      <p class="label">Broadcaster</p>
+      <video id="remote" autoplay playsinline controls></video>
+    </div>
+    <div id="localWrap">
+      <p class="label">You</p>
+      <video id="local" autoplay playsinline muted></video>
+    </div>
+  </div>
+
+  <div class="row">
+    <button id="cam" class="ghost" disabled>Camera off</button>
+    <button id="mic" class="ghost" disabled>Mic off</button>
+  </div>
+
+  <div id="status">Idle.</div>
+  <div class="nav"><a href="broadcast.html">→ Start your own broadcast</a></div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const signalInput = $("signal");
+const topicInput  = $("topic");
+const shareChk    = $("share");
+const connectBtn  = $("connect");
+const disconnBtn  = $("disconnect");
+const camBtn      = $("cam");
+const micBtn      = $("mic");
+const remoteV     = $("remote");
+const localV      = $("local");
+const localWrap   = $("localWrap");
+const statusEl    = $("status");
+
+let ws = null;
+let pc = null;
+let localStream = null;
+
+const ICE = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
+
+// Prefill topic from ?topic= so a shared link just works.
+const params = new URLSearchParams(location.search);
+if (params.get("topic")) topicInput.value = params.get("topic").toUpperCase();
+
+function setStatus(msg, isError = false) {
+  statusEl.textContent = msg;
+  statusEl.classList.toggle("error", isError);
+  (isError ? console.error : console.log)("[view]", msg);
+}
+
+function setConnected(on) {
+  connectBtn.disabled = on;
+  disconnBtn.disabled = !on;
+  signalInput.disabled = on;
+  topicInput.disabled = on;
+  shareChk.disabled = on;
+  const sharing = on && !!localStream;
+  camBtn.disabled = !sharing;
+  micBtn.disabled = !sharing;
+}
+
+function waitForIceGathering(pc) {
+  if (pc.iceGatheringState === "complete") return Promise.resolve();
+  return new Promise((resolve) => {
+    const check = () => {
+      if (pc.iceGatheringState === "complete") {
+        pc.removeEventListener("icegatheringstatechange", check);
+        resolve();
+      }
+    };
+    pc.addEventListener("icegatheringstatechange", check);
+  });
+}
+
+async function parseSignal(data) {
+  const text = typeof data === "string" ? data : await data.text();
+  try { return JSON.parse(text); } catch { return null; }
+}
+
+async function connect() {
+  const base = signalInput.value.trim();
+  const topic = topicInput.value.trim().toUpperCase();
+  if (!base) { setStatus("Enter a signalling URL.", true); return; }
+  if (!topic) { setStatus("Enter the topic code from the broadcaster.", true); return; }
+
+  setConnected(true);
+  setStatus("Setting up…");
+
+  pc = new RTCPeerConnection(ICE);
+
+  pc.ontrack = (e) => {
+    setStatus("Receiving the broadcast.");
+    remoteV.srcObject = e.streams[0];
+  };
+
+  pc.onconnectionstatechange = () => {
+    setStatus("Connection: " + pc.connectionState);
+    if (["failed", "disconnected", "closed"].includes(pc.connectionState)) cleanup();
+  };
+
+  // Optionally share our own camera/mic; otherwise stay view-only.
+  if (shareChk.checked) {
+    try {
+      localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      localV.srcObject = localStream;
+      localWrap.classList.add("show");
+      // sendrecv transceivers — we send our media and receive theirs.
+      localStream.getTracks().forEach((t) => pc.addTrack(t, localStream));
+      camBtn.disabled = micBtn.disabled = false;
+      updateTrackButtons();
+    } catch (err) {
+      setStatus("Could not access camera/mic, continuing view-only: " + err);
+    }
+  }
+  // Always make sure we can receive the broadcaster's video + audio.
+  if (!localStream) {
+    pc.addTransceiver("video", { direction: "recvonly" });
+    pc.addTransceiver("audio", { direction: "recvonly" });
+  }
+
+  const url = base + (base.includes("?") ? "&" : "?") + "topic=" + encodeURIComponent(topic) + "&role=subscriber";
+  ws = new WebSocket(url);
+
+  ws.onopen = async () => {
+    setStatus("Signalling connected. Creating offer…");
+    try {
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      await waitForIceGathering(pc);
+      ws.send(JSON.stringify({ type: "offer", sdp: pc.localDescription.sdp }));
+      setStatus("Offer sent. Waiting for the broadcaster…");
+    } catch (err) {
+      setStatus("Offer failed: " + err, true);
+      cleanup();
+    }
+  };
+
+  ws.onmessage = async (ev) => {
+    const sig = await parseSignal(ev.data);
+    if (!sig || sig.type !== "answer") return;
+    setStatus("Answer received. Establishing media…");
+    try {
+      await pc.setRemoteDescription({ type: "answer", sdp: sig.sdp });
+    } catch (err) {
+      setStatus("Failed to apply answer: " + err, true);
+      cleanup();
+    }
+  };
+
+  ws.onerror = () => setStatus("Signalling socket error.", true);
+  ws.onclose = () => { if (!disconnBtn.disabled) setStatus("Signalling socket closed."); };
+}
+
+function updateTrackButtons() {
+  if (!localStream) return;
+  const v = localStream.getVideoTracks()[0];
+  const a = localStream.getAudioTracks()[0];
+  camBtn.textContent = v && v.enabled ? "Camera off" : "Camera on";
+  micBtn.textContent = a && a.enabled ? "Mic off" : "Mic on";
+}
+
+function toggleTrack(kind) {
+  if (!localStream) return;
+  const track = kind === "video" ? localStream.getVideoTracks()[0] : localStream.getAudioTracks()[0];
+  if (track) track.enabled = !track.enabled;
+  updateTrackButtons();
+}
+
+function cleanup() {
+  if (ws) { try { ws.close(); } catch {} ws = null; }
+  if (pc) { try { pc.close(); } catch {} pc = null; }
+  if (localStream) { localStream.getTracks().forEach((t) => t.stop()); localStream = null; }
+  remoteV.srcObject = null;
+  localV.srcObject = null;
+  localWrap.classList.remove("show");
+  setConnected(false);
+}
+
+function disconnect() {
+  setStatus("Disconnected.");
+  cleanup();
+}
+
+connectBtn.addEventListener("click", connect);
+disconnBtn.addEventListener("click", disconnect);
+camBtn.addEventListener("click", () => toggleTrack("video"));
+micBtn.addEventListener("click", () => toggleTrack("audio"));
+</script>
+</body>
+</html>
