@@ -67,8 +67,8 @@
     z-index: 6; cursor: pointer; touch-action: none; background: #222;
   }
   .stage:not(.has-pip) video.pip { display: none; }
-  /* Mirror the self-view (local camera) like a selfie preview */
-  #local { transform: scaleX(-1); }
+  /* Mirror the self-view only for the front camera, like a selfie preview */
+  .stage.mirror-local #local { transform: scaleX(-1); }
   .waiting {
     position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
     color: #9a9aa5; font-size: 15px; text-align: center; padding: 24px; z-index: 2;
@@ -219,6 +219,7 @@ function applyLayout() {
   stage.classList.toggle("has-pip", !!pipEl.srcObject);
 }
 function refreshPip() { stage.classList.toggle("has-pip", !!(mainIsLocal ? remoteV : localV).srcObject); }
+function applyMirror() { stage.classList.toggle("mirror-local", facing === "user"); }
 
 /* ---------- Controls auto-hide ---------- */
 let hideTimer = null;
@@ -281,6 +282,7 @@ async function connect() {
       localV.srcObject = localStream;
       localStream.getTracks().forEach((t) => pc.addTrack(t, localStream));
       micBtn.hidden = camBtn.hidden = flipBtn.hidden = false;
+      applyMirror();
       updateTrackButtons();
     } catch (err) {
       setStatus("View-only (no camera access)");
@@ -343,6 +345,7 @@ async function switchCamera() {
     if (old) { localStream.removeTrack(old); old.stop(); }
     localStream.addTrack(nt);
     localV.srcObject = localStream;
+    applyMirror();
     updateTrackButtons();
   } catch (err) { facing = facing === "user" ? "environment" : "user"; }
 }
