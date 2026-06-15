@@ -230,6 +230,8 @@ function applyLayout() {
   const pipEl  = mainIsLocal ? remoteV : localV;
   mainEl.className = "fill";
   pipEl.className = "pip";
+  // clear any leftover drag offsets on BOTH elements so the fill snaps back to inset:0
+  mainEl.style.left = mainEl.style.top = mainEl.style.right = mainEl.style.bottom = "";
   pipEl.style.left = pipEl.style.top = pipEl.style.right = pipEl.style.bottom = "";
   // show the pip only when it actually has a stream
   stage.classList.toggle("has-pip", !!pipEl.srcObject);
