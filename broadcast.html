@@ -49,6 +49,8 @@
     z-index: 6; cursor: pointer; touch-action: none; background: #222;
   }
   .stage:not(.has-pip) video.pip { display: none; }
+  /* Mirror the self-view (local camera) like a selfie preview */
+  #local { transform: scaleX(-1); }
 
   .topbar {
     position: absolute; top: 0; left: 0; right: 0; z-index: 8;

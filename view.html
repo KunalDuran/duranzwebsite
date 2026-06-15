@@ -67,6 +67,8 @@
     z-index: 6; cursor: pointer; touch-action: none; background: #222;
   }
   .stage:not(.has-pip) video.pip { display: none; }
+  /* Mirror the self-view (local camera) like a selfie preview */
+  #local { transform: scaleX(-1); }
   .waiting {
     position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
     color: #9a9aa5; font-size: 15px; text-align: center; padding: 24px; z-index: 2;
