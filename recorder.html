@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0b0d">
+<title>webrtcast · recorder</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    font: 15px/1.4 system-ui, -apple-system, sans-serif;
+    background: #0b0b0d;
+    color: #eee;
+    overflow: hidden;
+  }
+  .app { position: fixed; inset: 0; }
+
+  /* ---------- Lobby ---------- */
+  .lobby { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; overflow: auto; }
+  .card {
+    width: min(440px, 100%);
+    background: #16161a;
+    border: 1px solid #26262c;
+    border-radius: 20px;
+    padding: 26px;
+    display: flex; flex-direction: column; gap: 18px;
+  }
+  .card h1 { margin: 0; font-size: 21px; display: flex; align-items: center; gap: 10px; }
+  .card h1 .dot { width: 11px; height: 11px; border-radius: 50%; background: #e5484d; flex: none; }
+  .card .sub { margin: 0; color: #9a9aa5; font-size: 14px; }
+  .field { display: flex; flex-direction: column; gap: 8px; }
+  .field label { font-size: 13px; color: #9a9aa5; }
+  input.code {
+    padding: 16px; font: 700 24px/1 ui-monospace, monospace;
+    letter-spacing: 8px; text-align: center; text-transform: uppercase;
+    border-radius: 14px; border: 1px solid #2c2c34; background: #0e0e11; color: #fff;
+  }
+  input.code::placeholder { letter-spacing: 4px; color: #44444c; }
+  .code-row { display: flex; gap: 8px; align-items: stretch; }
+  .code-row .code { flex: 1; }
+  .copy-btn {
+    flex: none; padding: 0 16px; border-radius: 14px; border: 1px solid #2c2c34;
+    background: #2a2a31; color: #eee; font: inherit; font-weight: 600; font-size: 13px; cursor: pointer;
+  }
+
+  .dest {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 16px; background: #0e0e11; border: 1px solid #2c2c34; border-radius: 14px;
+  }
+  .dest .dest-icon { width: 22px; height: 22px; flex: none; stroke: #9a9aa5; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .dest .dest-text { flex: 1; min-width: 0; }
+  .dest .dest-text .t1 { font-size: 14px; }
+  .dest .dest-text .t2 { font-size: 12px; color: #9a9aa5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dest button {
+    flex: none; padding: 9px 14px; border-radius: 10px; border: 1px solid #2c2c34;
+    background: #2a2a31; color: #eee; font: inherit; font-weight: 600; font-size: 13px; cursor: pointer;
+  }
+  .dest.ok .dest-icon { stroke: #25d366; }
+
+  .note { margin: 0; font-size: 12px; color: #7a7a85; }
+  .note.warn { color: #e0a44a; }
+
+  .btn-primary {
+    padding: 15px; border: 0; border-radius: 14px;
+    background: #25d366; color: #032; font-weight: 700; font-size: 16px; cursor: pointer;
+  }
+  .btn-primary:disabled { opacity: .5; cursor: default; }
+
+  /* ---------- Stage ---------- */
+  .stage { position: absolute; inset: 0; background: #000; display: none; }
+  .stage.show { display: block; }
+  video.fill { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; }
+  .waiting {
+    position: absolute; inset: 0; display: none; flex-direction: column; gap: 14px;
+    align-items: center; justify-content: center;
+    color: #9a9aa5; font-size: 15px; text-align: center; padding: 24px; z-index: 2;
+  }
+  .stage.connecting .waiting { display: flex; }
+  .waiting .spinner {
+    width: 34px; height: 34px; border-radius: 50%;
+    border: 3px solid #2c2c34; border-top-color: #25d366; animation: spin 1s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .topbar {
+    position: absolute; top: 0; left: 0; right: 0; z-index: 8;
+    padding: calc(12px + env(safe-area-inset-top)) 14px 18px;
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    background: linear-gradient(#000b, #0000);
+    transition: opacity .3s;
+  }
+  .chip {
+    font-size: 13px; color: #eee; background: rgba(0,0,0,.4);
+    border: 1px solid rgba(255,255,255,.12);
+    padding: 7px 12px; border-radius: 999px; backdrop-filter: blur(8px);
+    max-width: 60vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .chip.code-chip { font-weight: 700; letter-spacing: 2px; color: #25d366; }
+  .chip.mode-chip { color: #9ad1ff; }
+  .chip.error { color: #ff8a8a; }
+  .spacer { flex: 1; }
+  .rec-indicator { display: inline-flex; align-items: center; gap: 7px; color: #ff9b9b; }
+  .rec-indicator[hidden] { display: none; }
+  .rec-dot { width: 9px; height: 9px; border-radius: 50%; background: #e5484d; animation: blink 1s step-start infinite; }
+  @keyframes blink { 50% { opacity: .25; } }
+
+  .controls {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 8;
+    padding: 18px 18px calc(20px + env(safe-area-inset-bottom));
+    display: flex; gap: 14px; justify-content: center; align-items: center; flex-wrap: wrap;
+    background: linear-gradient(#0000, #000b);
+    transition: opacity .3s;
+  }
+  .ctrl {
+    width: 58px; height: 58px; border-radius: 50%; border: 0;
+    background: rgba(255,255,255,.16); color: #fff; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; position: relative;
+    backdrop-filter: blur(8px);
+  }
+  .ctrl[disabled] { opacity: .4; cursor: default; }
+  .ctrl svg { width: 25px; height: 25px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .ctrl.end { background: #e5484d; color: #fff; }
+  .ctrl.end svg { transform: rotate(135deg); }
+  .faded { opacity: 0; pointer-events: none; }
+
+  /* ---------- Record button ---------- */
+  #rec .rec-idle   { fill: #e5484d; stroke: #e5484d; }
+  #rec .rec-active { display: none; fill: #fff; stroke: #fff; }
+  #rec.rec-on .rec-idle   { display: none; }
+  #rec.rec-on .rec-active { display: block; }
+  #rec.rec-on { background: #e5484d; color: #fff; }
+  #rec.rec-on::before {
+    content: ''; position: absolute; inset: -4px; border-radius: 50%;
+    border: 2px solid #e5484d; animation: recpulse 1.4s ease-out infinite;
+  }
+  @keyframes recpulse { 0% { transform: scale(1); opacity: .7; } 100% { transform: scale(1.4); opacity: 0; } }
+
+  .hint-strip {
+    position: absolute; left: 0; right: 0; bottom: calc(96px + env(safe-area-inset-bottom));
+    z-index: 7; text-align: center; padding: 0 18px;
+    color: #9a9aa5; font-size: 13px; transition: opacity .3s;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Lobby -->
+  <div class="lobby" id="lobby">
+    <div class="card">
+      <div>
+        <h1><span class="dot"></span>Stream recorder</h1>
+        <p class="sub">Arm this device, then enter the code below on the camera. It connects to you and streams here; recordings are saved to this disk.</p>
+      </div>
+
+      <div class="field">
+        <label for="topic">Your code — enter this on the camera</label>
+        <div class="code-row">
+          <input id="topic" class="code" maxlength="8" autocomplete="off" autocapitalize="characters" spellcheck="false">
+          <button id="copyCode" class="copy-btn" type="button">Copy</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Save recordings to</label>
+        <div class="dest" id="dest">
+          <svg class="dest-icon" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+          <div class="dest-text">
+            <div class="t1" id="destName">No folder chosen</div>
+            <div class="t2" id="destHint">Falls back to your Downloads folder</div>
+          </div>
+          <button id="chooseFolder" type="button">Choose…</button>
+        </div>
+      </div>
+
+      <p class="note" id="apiNote" hidden>This browser can't pick a folder — recordings will be saved to Downloads with a date-stamped name. For folder control, use desktop Chrome or Edge.</p>
+
+      <button class="btn-primary" id="arm">Arm recorder &amp; listen</button>
+      <p class="sub" style="text-align:center"><a href="broadcast-rec.html" style="color:#9ad">Start a broadcast instead →</a></p>
+    </div>
+  </div>
+
+  <!-- Stage -->
+  <div class="stage" id="stage">
+    <video id="remote" class="fill" autoplay playsinline></video>
+    <div class="waiting" id="waiting">
+      <div class="spinner"></div>
+      <div id="waitMsg">Connecting to the broadcaster…</div>
+    </div>
+
+    <div class="topbar" id="topbar">
+      <div class="chip code-chip" id="codeChip"></div>
+      <div class="chip mode-chip" id="modeChip" hidden></div>
+      <div class="chip" id="status">Connecting…</div>
+      <div class="spacer"></div>
+      <div class="chip rec-indicator" id="recInd" hidden><span class="rec-dot"></span><span id="recTime">0:00</span></div>
+    </div>
+
+    <div class="hint-strip" id="hintStrip">Armed · waiting for the broadcaster</div>
+
+    <div class="controls" id="controls">
+      <button class="ctrl" id="rec" title="Record" disabled>
+        <svg viewBox="0 0 24 24">
+          <circle class="rec-idle" cx="12" cy="12" r="7"/>
+          <rect class="rec-active" x="7" y="7" width="10" height="10" rx="2"/>
+        </svg>
+      </button>
+      <button class="ctrl end" id="end" title="Disconnect">
+        <svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3-8.6A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.6a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.5-1.2a2 2 0 0 1 2.1-.5c.8.3 1.7.6 2.6.7a2 2 0 0 1 1.7 2z"/></svg>
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const SIGNAL_URL = "wss://dashboard.dronnayak.com/ws";
+const ICE = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
+const REC_VIDEO_BPS = 2_500_000;
+const REC_AUDIO_BPS = 128_000;
+
+const $ = (id) => document.getElementById(id);
+const lobby = $("lobby"), stage = $("stage");
+const topicInput = $("topic"), armBtn = $("arm"), copyCodeBtn = $("copyCode");
+const destEl = $("dest"), destName = $("destName"), destHint = $("destHint"), chooseBtn = $("chooseFolder"), apiNote = $("apiNote");
+const remoteV = $("remote"), waitMsg = $("waitMsg");
+const topbar = $("topbar"), controls = $("controls"), hintStrip = $("hintStrip");
+const statusEl = $("status"), codeChip = $("codeChip"), modeChip = $("modeChip");
+const recBtn = $("rec"), endBtn = $("end"), recInd = $("recInd"), recTime = $("recTime");
+
+let ws = null, pc = null, dc = null, topic = "", dirHandle = null;
+let currentMode = "source";           // announced by the broadcaster over the data channel
+const supportsDirPicker = !!window.showDirectoryPicker;
+
+function makeTopic() {
+  const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  let s = "";
+  for (let i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+}
+
+const params = new URLSearchParams(location.search);
+// The recorder owns the code: use one passed in the URL, otherwise generate.
+topicInput.value = params.get("topic") ? params.get("topic").toUpperCase() : makeTopic();
+
+if (!supportsDirPicker) {
+  apiNote.hidden = false;
+  chooseBtn.disabled = true;
+  chooseBtn.style.opacity = ".5";
+}
+
+function setStatus(msg, isError = false) {
+  statusEl.textContent = msg;
+  statusEl.classList.toggle("error", isError);
+}
+function updateModeChip() {
+  modeChip.hidden = false;
+  modeChip.textContent = currentMode === "source" ? "Original (P2P)" : "Streamed";
+}
+
+function waitForIceGathering(pc) {
+  if (pc.iceGatheringState === "complete") return Promise.resolve();
+  return new Promise((resolve) => {
+    const check = () => {
+      if (pc.iceGatheringState === "complete") {
+        pc.removeEventListener("icegatheringstatechange", check);
+        resolve();
+      }
+    };
+    pc.addEventListener("icegatheringstatechange", check);
+  });
+}
+
+async function parseSignal(data) {
+  const text = typeof data === "string" ? data : await data.text();
+  try { return JSON.parse(text); } catch { return null; }
+}
+
+/* ---------- UI sounds ---------- */
+let audioCtx = null;
+function beep(freqs, dur = 0.15, type = "sine") {
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    let t = audioCtx.currentTime;
+    (Array.isArray(freqs) ? freqs : [freqs]).forEach((f) => {
+      const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+      osc.type = type; osc.frequency.value = f;
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(0.25, t + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(t); osc.stop(t + dur);
+      t += dur;
+    });
+  } catch {}
+}
+
+/* ---------- Destination folder ---------- */
+async function chooseFolder() {
+  if (!supportsDirPicker) return;
+  try {
+    const handle = await window.showDirectoryPicker({ id: "webrtcast-rec", mode: "readwrite" });
+    if (handle.requestPermission) {
+      const perm = await handle.requestPermission({ mode: "readwrite" });
+      if (perm !== "granted") { destHint.textContent = "Permission denied — will use Downloads"; return; }
+    }
+    dirHandle = handle;
+    destEl.classList.add("ok");
+    destName.textContent = handle.name;
+    destHint.textContent = "Recordings will be saved here";
+  } catch (err) {
+    if (err && err.name === "AbortError") return;
+    destHint.textContent = "Couldn't open that folder — will use Downloads";
+  }
+}
+
+/* ---------- Controls auto-hide ---------- */
+let hideTimer = null;
+function showControls() {
+  topbar.classList.remove("faded"); controls.classList.remove("faded"); hintStrip.classList.remove("faded");
+  clearTimeout(hideTimer);
+  hideTimer = setTimeout(() => {
+    controls.classList.add("faded"); hintStrip.classList.add("faded");
+    if (!recActiveMode) topbar.classList.add("faded");
+  }, 4000);
+}
+stage.addEventListener("click", showControls);
+
+/* ---------- Connect flow (recorder = listener that answers the camera) ----------
+   The recorder owns the code, connects, and waits. The camera enters the code and
+   sends the SDP offer; the recorder answers. A lightweight ready/ready handshake
+   makes the pairing work no matter which side joins the topic first. */
+function wsSend(obj) { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj)); }
+
+async function connect() {
+  topic = topicInput.value.trim().toUpperCase();
+  if (!topic) { topicInput.focus(); return; }
+
+  armBtn.disabled = true;
+  codeChip.textContent = topic;
+  lobby.style.display = "none";
+  stage.classList.add("show", "connecting");
+  waitMsg.textContent = "Waiting for the camera to connect…";
+  showControls();
+
+  const url = SIGNAL_URL + (SIGNAL_URL.includes("?") ? "&" : "?") + "topic=" + encodeURIComponent(topic) + "&role=subscriber";
+  ws = new WebSocket(url);
+
+  ws.onopen = () => { setStatus("Armed · waiting for camera"); wsSend({ type: "rec-ready" }); };
+  ws.onmessage = async (ev) => {
+    const sig = await parseSignal(ev.data);
+    if (!sig) return;
+    // Camera announced itself → tell it we're here so it sends the offer.
+    if (sig.type === "cam-ready") wsSend({ type: "rec-ready" });
+    else if (sig.type === "offer") handleOffer(sig.sdp);
+  };
+  ws.onerror = () => setStatus("Signalling error", true);
+  ws.onclose = () => { if (stage.classList.contains("connecting")) setStatus("Disconnected", true); };
+}
+
+async function handleOffer(sdp) {
+  setStatus("Camera connecting…");
+  if (pc) { try { pc.close(); } catch {} }
+  pc = new RTCPeerConnection(ICE);
+
+  // Negotiated data channel (same id on both peers) — carries all recording
+  // control + the original-quality byte stream, fully peer-to-peer.
+  dc = pc.createDataChannel("rec", { negotiated: true, id: 0, ordered: true });
+  dc.binaryType = "arraybuffer";
+  dc.onmessage = onDcMessage;
+
+  pc.ontrack = (e) => {
+    remoteV.srcObject = e.streams[0];
+    stage.classList.remove("connecting");
+    recBtn.disabled = false;
+    setStatus("Connected · armed");
+  };
+  pc.onconnectionstatechange = () => {
+    if (pc.connectionState === "connected") { stage.classList.remove("connecting"); setStatus("Connected · armed"); }
+    if (["failed", "disconnected", "closed"].includes(pc.connectionState)) disconnect();
+  };
+
+  try {
+    await pc.setRemoteDescription({ type: "offer", sdp });   // m-lines come from the camera's offer
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    await waitForIceGathering(pc);
+    wsSend({ type: "answer", sdp: pc.localDescription.sdp });
+  } catch (err) { setStatus("Failed to connect", true); }
+}
+
+/* ---------- Data-channel control plane ---------- */
+function dcSend(obj) { if (dc && dc.readyState === "open") dc.send(JSON.stringify(obj)); }
+function sendAck(recording, error) { dcSend({ t: "ack", recording, error: error || null }); }
+
+function onDcMessage(ev) {
+  if (typeof ev.data === "string") {
+    let m; try { m = JSON.parse(ev.data); } catch { return; }
+    if (m.t === "mode") { currentMode = m.mode; updateModeChip(); }
+    else if (m.t === "rec" && m.cmd === "start") {
+      if (m.mode === "source") beginSourceFile(m.name, m.mime);
+      else startRemoteRecording();
+    }
+    else if (m.t === "rec" && m.cmd === "stop") {
+      if (recActiveMode === "source") endSourceFile();
+      else stopRemoteRecording();
+    }
+  } else {
+    writeSourceBytes(ev.data);            // original-quality bytes from the broadcaster
+  }
+}
+
+/* ---------- File helpers (serialised writes) ---------- */
+let writeChain = Promise.resolve();
+function resetWriteChain() { writeChain = Promise.resolve(); }
+function chainWrite(w, data) { if (w) writeChain = writeChain.catch(() => {}).then(() => w.write(data)); }
+async function chainClose(w) { writeChain = writeChain.catch(() => {}).then(() => w.close()); try { await writeChain; } catch {} }
+
+async function openFile(name) {
+  if (!dirHandle) return null;
+  try {
+    const fh = await dirHandle.getFileHandle(name, { create: true });
+    return await fh.createWritable();
+  } catch { return null; }
+}
+
+function pickMime() {
+  const types = ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm", "video/mp4"];
+  return types.find((t) => MediaRecorder.isTypeSupported(t)) || "";
+}
+function recFilename(mime) {
+  const ext = (mime || "").includes("mp4") ? "mp4" : "webm";
+  const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  return `${topic || "stream"}-${ts}.${ext}`;
+}
+
+/* ---------- Recording state (one of: null | "source" | "remote") ---------- */
+let recActiveMode = null, recName = "", recTimer = null, recStart = 0;
+let mediaRecorder = null, fileWritable = null, recChunks = [];   // "remote" mode
+let srcWritable = null, srcChunks = [], srcMime = "";            // "source" mode
+
+function setRecUI(on) {
+  recBtn.classList.toggle("rec-on", on);
+  recBtn.title = on ? "Stop recording" : "Record";
+  recInd.hidden = !on;
+  clearInterval(recTimer); recTimer = null;
+  if (on) {
+    recStart = Date.now();
+    const tick = () => {
+      const s = Math.floor((Date.now() - recStart) / 1000);
+      recTime.textContent = Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+    };
+    tick();
+    recTimer = setInterval(tick, 500);
+  }
+  showControls();
+}
+
+/* ----- Original mode: receive bytes, write to disk ----- */
+async function beginSourceFile(name, mime) {
+  if (recActiveMode) return;
+  recActiveMode = "source";
+  recName = name || recFilename(mime);
+  srcMime = mime || "video/webm";
+  resetWriteChain();
+  srcChunks = [];
+  const writable = await openFile(recName);
+  // Bytes that arrived during the await were buffered in srcChunks — flush them
+  // into the file in order, then switch to streaming writes.
+  if (writable) {
+    for (const b of srcChunks) chainWrite(writable, b);
+    srcChunks = [];
+    srcWritable = writable;
+  }
+  beep([660, 990], 0.13);
+  setStatus("Recording · original");
+  hintStrip.textContent = (srcWritable ? ("Saving → " + dirHandle.name + " / " + recName) : ("Saving → " + recName + " (Downloads)"));
+  setRecUI(true);
+  sendAck(true);
+}
+function writeSourceBytes(buf) {
+  if (recActiveMode !== "source") return;
+  if (srcWritable) chainWrite(srcWritable, buf);
+  else srcChunks.push(buf);                 // fallback: buffer for a download
+}
+async function endSourceFile(silent) {
+  if (recActiveMode !== "source") return;
+  recActiveMode = null;
+  if (srcWritable) { await chainClose(srcWritable); srcWritable = null; }
+  else if (srcChunks.length) { downloadBlob(new Blob(srcChunks, { type: srcMime }), recName); }
+  srcChunks = [];
+  if (!silent) beep([990, 660], 0.13);
+  setStatus("Connected · armed");
+  hintStrip.textContent = "Saved · " + recName + " · armed for the next take";
+  setRecUI(false);
+  sendAck(false);
+}
+
+/* ----- Streamed mode: record the received WebRTC stream ----- */
+async function startRemoteRecording() {
+  if (recActiveMode) return;
+  const stream = remoteV.srcObject;
+  if (!stream) { setStatus("Nothing to record yet", true); sendAck(false, "no-stream"); return; }
+  const mime = pickMime();
+  if (!mime) { setStatus("Recording not supported here", true); sendAck(false, "no-codec"); return; }
+  recName = recFilename(mime);
+  resetWriteChain();
+  const writable = await openFile(recName);
+  try {
+    mediaRecorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: REC_VIDEO_BPS, audioBitsPerSecond: REC_AUDIO_BPS });
+  } catch (err) {
+    setStatus("Recorder failed to start", true);
+    if (writable) { try { await writable.close(); } catch {} }
+    sendAck(false, "recorder-failed");
+    return;
+  }
+  recActiveMode = "remote";
+  fileWritable = writable;
+  recChunks = [];
+  mediaRecorder.ondataavailable = (e) => {
+    if (!e.data || !e.data.size) return;
+    if (fileWritable) chainWrite(fileWritable, e.data);
+    else recChunks.push(e.data);
+  };
+  mediaRecorder.onstop = async () => {
+    if (fileWritable) { await chainClose(fileWritable); fileWritable = null; }
+    else if (recChunks.length) { downloadBlob(new Blob(recChunks, { type: mime }), recName); }
+    recChunks = [];
+  };
+  mediaRecorder.start(1000);
+  beep([660, 990], 0.13);
+  setStatus("Recording · streamed");
+  hintStrip.textContent = (fileWritable ? ("Saving → " + dirHandle.name + " / " + recName) : ("Saving → " + recName + " (Downloads)"));
+  setRecUI(true);
+  sendAck(true);
+}
+function stopRemoteRecording(silent) {
+  if (recActiveMode !== "remote") return;
+  recActiveMode = null;
+  if (mediaRecorder && mediaRecorder.state !== "inactive") { try { mediaRecorder.stop(); } catch {} }
+  mediaRecorder = null;
+  if (!silent) beep([990, 660], 0.13);
+  setStatus("Connected · armed");
+  hintStrip.textContent = "Saved · " + recName + " · armed for the next take";
+  setRecUI(false);
+  sendAck(false);
+}
+
+function downloadBlob(blob, name) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+}
+
+/* ----- Local record button: drive the active mode ----- */
+function toggleRecording() {
+  if (recBtn.disabled) return;
+  const recording = recActiveMode !== null;
+  if (currentMode === "source") {
+    // The broadcaster owns the source encoder — ask it to start/stop.
+    dcSend({ t: "req", cmd: recording ? "stop" : "start" });
+  } else {
+    if (recording) stopRemoteRecording(); else startRemoteRecording();
+  }
+}
+
+function disconnect() {
+  // Finalise any open file quietly.
+  if (recActiveMode === "source") endSourceFile(true);
+  else if (recActiveMode === "remote") stopRemoteRecording(true);
+  if (dc) { try { dc.close(); } catch {} dc = null; }
+  if (ws) { try { ws.close(); } catch {} ws = null; }
+  if (pc) { try { pc.close(); } catch {} pc = null; }
+  remoteV.srcObject = null;
+  stage.classList.remove("show", "connecting");
+  recBtn.disabled = true;
+  recBtn.classList.remove("rec-on");
+  recInd.hidden = true;
+  modeChip.hidden = true;
+  hintStrip.textContent = "Armed · waiting for the broadcaster";
+  lobby.style.display = "flex";
+  armBtn.disabled = false;
+  setStatus("Connecting…");
+}
+
+/* ---------- Wiring ---------- */
+chooseBtn.addEventListener("click", chooseFolder);
+copyCodeBtn.addEventListener("click", async () => {
+  try { await navigator.clipboard.writeText(topicInput.value.trim().toUpperCase()); copyCodeBtn.textContent = "Copied!"; setTimeout(() => copyCodeBtn.textContent = "Copy", 1500); }
+  catch {}
+});
+armBtn.addEventListener("click", connect);
+recBtn.addEventListener("click", toggleRecording);
+endBtn.addEventListener("click", () => { beep([523, 392, 262], 0.16); disconnect(); });
+topicInput.addEventListener("keydown", (e) => { if (e.key === "Enter") connect(); });
+</script>
+</body>
+</html>
