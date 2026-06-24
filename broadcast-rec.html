@@ -415,6 +415,7 @@ async function start() {
     if (!sig) return;
     if (sig.type === "rec-ready") makeOffer();             // recorder is present → (re)offer
     else if (sig.type === "answer") {
+      setStatus("Almost there…");
       try { await pc.setRemoteDescription({ type: "answer", sdp: sig.sdp }); }
       catch (err) { setStatus("Failed to connect", true); }
     }
@@ -458,6 +459,7 @@ async function makeOffer() {
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
     await waitForIceGathering(pc);
+    setStatus("Reaching the recorder…");
     ws.send(JSON.stringify({ type: "offer", sdp: pc.localDescription.sdp }));
   } catch (err) {
     setStatus("Offer failed", true);

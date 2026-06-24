@@ -386,9 +386,11 @@ async function handleOffer(sdp) {
 
   try {
     await pc.setRemoteDescription({ type: "offer", sdp });   // m-lines come from the camera's offer
+    setStatus("Camera found · linking up…");
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
     await waitForIceGathering(pc);
+    setStatus("Almost there…");
     wsSend({ type: "answer", sdp: pc.localDescription.sdp });
   } catch (err) { setStatus("Failed to connect", true); }
 }

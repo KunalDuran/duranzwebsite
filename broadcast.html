@@ -328,10 +328,12 @@ async function handleOffer(sdp) {
 
   try {
     await pc.setRemoteDescription({ type: "offer", sdp });
+    setStatus("Viewer found · linking up…");
     localStream.getTracks().forEach((t) => pc.addTrack(t, localStream));
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
     await waitForIceGathering(pc);
+    setStatus("Almost there…");
     ws.send(JSON.stringify({ type: "answer", sdp: pc.localDescription.sdp }));
   } catch (err) {
     setStatus("Answer failed", true);
