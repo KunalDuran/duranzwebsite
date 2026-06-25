@@ -261,6 +261,33 @@ function updateModeChip() {
   modeChip.textContent = currentMode === "source" ? "Original (P2P)" : "Streamed";
 }
 
+/* ---------- Debug timing / overlay (append ?debug=true to the URL) ---------- */
+const DEBUG = params.get("debug") === "true";
+let dbgPanel = null, dbgT0 = 0, dbgPrev = 0;
+function dbgInit() {
+  dbgT0 = dbgPrev = performance.now();
+  if (!DEBUG) return;
+  if (!dbgPanel) {
+    dbgPanel = document.createElement("div");
+    dbgPanel.id = "debugPanel";
+    dbgPanel.style.cssText =
+      "position:absolute;left:8px;top:calc(58px + env(safe-area-inset-top));z-index:20;" +
+      "max-width:84vw;max-height:42vh;overflow:auto;background:rgba(0,0,0,.74);" +
+      "border:1px solid rgba(255,255,255,.16);border-radius:10px;padding:8px 10px;" +
+      "font:11px/1.45 ui-monospace,monospace;color:#8dff9a;white-space:pre;backdrop-filter:blur(6px);";
+    document.body.appendChild(dbgPanel);
+  }
+  dbgPanel.textContent = "";
+}
+function dbg(label) {
+  const now = performance.now();
+  const since = now - dbgPrev, total = now - dbgT0;
+  dbgPrev = now;
+  const line = "+" + since.toFixed(0) + "ms  t=" + total.toFixed(0) + "ms  " + label;
+  console.log("[webrtcast]", line);
+  if (dbgPanel) { dbgPanel.textContent += line + "\n"; dbgPanel.scrollTop = dbgPanel.scrollHeight; }
+}
+
 function waitForIceGathering(pc) {
   if (pc.iceGatheringState === "complete") return Promise.resolve();
   return new Promise((resolve) => {
@@ -341,6 +368,8 @@ async function connect() {
   if (!topic) { topicInput.focus(); return; }
 
   armBtn.disabled = true;
+  dbgInit();
+  dbg("arm: waiting for camera");
   codeChip.textContent = topic;
   lobby.style.display = "none";
   stage.classList.add("show", "connecting");
@@ -348,21 +377,23 @@ async function connect() {
   showControls();
 
   const url = SIGNAL_URL + (SIGNAL_URL.includes("?") ? "&" : "?") + "topic=" + encodeURIComponent(topic) + "&role=subscriber";
+  dbg("ws: connecting");
   ws = new WebSocket(url);
 
-  ws.onopen = () => { setStatus("Armed · waiting for camera"); wsSend({ type: "rec-ready" }); };
+  ws.onopen = () => { dbg("ws: open · announcing rec-ready"); setStatus("Armed · waiting for camera"); wsSend({ type: "rec-ready" }); };
   ws.onmessage = async (ev) => {
     const sig = await parseSignal(ev.data);
     if (!sig) return;
     // Camera announced itself → tell it we're here so it sends the offer.
-    if (sig.type === "cam-ready") wsSend({ type: "rec-ready" });
-    else if (sig.type === "offer") handleOffer(sig.sdp);
+    if (sig.type === "cam-ready") { dbg("cam-ready received · replying rec-ready"); wsSend({ type: "rec-ready" }); }
+    else if (sig.type === "offer") { dbg("offer received from camera"); handleOffer(sig.sdp); }
   };
-  ws.onerror = () => setStatus("Signalling error", true);
-  ws.onclose = () => { if (stage.classList.contains("connecting")) setStatus("Disconnected", true); };
+  ws.onerror = () => { dbg("ws: error"); setStatus("Signalling error", true); };
+  ws.onclose = () => { dbg("ws: closed"); if (stage.classList.contains("connecting")) setStatus("Disconnected", true); };
 }
 
 async function handleOffer(sdp) {
+  dbg("handleOffer: creating peer connection");
   setStatus("Camera connecting…");
   if (pc) { try { pc.close(); } catch {} }
   pc = new RTCPeerConnection(ICE);
@@ -371,28 +402,36 @@ async function handleOffer(sdp) {
   // control + the original-quality byte stream, fully peer-to-peer.
   dc = pc.createDataChannel("rec", { negotiated: true, id: 0, ordered: true });
   dc.binaryType = "arraybuffer";
+  dc.onopen = () => dbg("data channel open");
   dc.onmessage = onDcMessage;
 
   pc.ontrack = (e) => {
+    dbg("ontrack: camera media arrived");
     remoteV.srcObject = e.streams[0];
     stage.classList.remove("connecting");
     recBtn.disabled = false;
     setStatus("Connected · armed");
   };
+  pc.oniceconnectionstatechange = () => dbg("ICE state: " + pc.iceConnectionState);
   pc.onconnectionstatechange = () => {
+    dbg("pc state: " + pc.connectionState);
     if (pc.connectionState === "connected") { stage.classList.remove("connecting"); setStatus("Connected · armed"); }
     if (["failed", "disconnected", "closed"].includes(pc.connectionState)) disconnect();
   };
 
   try {
     await pc.setRemoteDescription({ type: "offer", sdp });   // m-lines come from the camera's offer
+    dbg("remote description set");
     setStatus("Camera found · linking up…");
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
+    dbg("answer created · gathering ICE");
     await waitForIceGathering(pc);
+    dbg("ICE gathering complete");
     setStatus("Almost there…");
     wsSend({ type: "answer", sdp: pc.localDescription.sdp });
-  } catch (err) { setStatus("Failed to connect", true); }
+    dbg("answer sent");
+  } catch (err) { dbg("answer failed: " + err); setStatus("Failed to connect", true); }
 }
 
 /* ---------- Data-channel control plane ---------- */
@@ -573,6 +612,7 @@ function toggleRecording() {
 }
 
 function disconnect() {
+  if (dbgPanel) { dbgPanel.remove(); dbgPanel = null; }
   // Finalise any open file quietly.
   if (recActiveMode === "source") endSourceFile(true);
   else if (recActiveMode === "remote") stopRemoteRecording(true);

@@ -213,6 +213,33 @@ function setStatus(msg, isError = false) {
   statusEl.classList.toggle("error", isError);
 }
 
+/* ---------- Debug timing / overlay (append ?debug=true to the URL) ---------- */
+const DEBUG = params.get("debug") === "true";
+let dbgPanel = null, dbgT0 = 0, dbgPrev = 0;
+function dbgInit() {
+  dbgT0 = dbgPrev = performance.now();
+  if (!DEBUG) return;
+  if (!dbgPanel) {
+    dbgPanel = document.createElement("div");
+    dbgPanel.id = "debugPanel";
+    dbgPanel.style.cssText =
+      "position:absolute;left:8px;top:calc(58px + env(safe-area-inset-top));z-index:20;" +
+      "max-width:84vw;max-height:42vh;overflow:auto;background:rgba(0,0,0,.74);" +
+      "border:1px solid rgba(255,255,255,.16);border-radius:10px;padding:8px 10px;" +
+      "font:11px/1.45 ui-monospace,monospace;color:#8dff9a;white-space:pre;backdrop-filter:blur(6px);";
+    document.body.appendChild(dbgPanel);
+  }
+  dbgPanel.textContent = "";
+}
+function dbg(label) {
+  const now = performance.now();
+  const since = now - dbgPrev, total = now - dbgT0;
+  dbgPrev = now;
+  const line = "+" + since.toFixed(0) + "ms  t=" + total.toFixed(0) + "ms  " + label;
+  console.log("[webrtcast]", line);
+  if (dbgPanel) { dbgPanel.textContent += line + "\n"; dbgPanel.scrollTop = dbgPanel.scrollHeight; }
+}
+
 function waitForIceGathering(pc) {
   if (pc.iceGatheringState === "complete") return Promise.resolve();
   return new Promise((resolve) => {
@@ -311,22 +338,29 @@ async function connect() {
   if (!topic) { topicInput.focus(); return; }
 
   connectBtn.disabled = true;
+  dbgInit();
+  dbg("connect: creating peer connection");
   pc = new RTCPeerConnection(ICE);
   pc.ontrack = (e) => {
+    dbg("ontrack: broadcaster media arrived");
     remoteV.srcObject = e.streams[0];
     stage.classList.remove("connecting");
     refreshPip();
     recBtn.hidden = false;
     setStatus("Live");
   };
+  pc.oniceconnectionstatechange = () => dbg("ICE state: " + pc.iceConnectionState);
   pc.onconnectionstatechange = () => {
+    dbg("pc state: " + pc.connectionState);
     if (pc.connectionState === "connected") { stage.classList.remove("connecting"); setStatus("Live"); }
     if (["failed", "disconnected", "closed"].includes(pc.connectionState)) leave();
   };
 
   if (shareChk.checked) {
     try {
+      dbg("requesting camera/mic");
       localStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing }, audio: true });
+      dbg("camera/mic ready");
       localV.srcObject = localStream;
       localStream.getTracks().forEach((t) => pc.addTrack(t, localStream));
       micBtn.hidden = camBtn.hidden = flipBtn.hidden = false;
@@ -347,27 +381,33 @@ async function connect() {
   showControls();
 
   const url = SIGNAL_URL + (SIGNAL_URL.includes("?") ? "&" : "?") + "topic=" + encodeURIComponent(topic) + "&role=subscriber";
+  dbg("ws: connecting");
   ws = new WebSocket(url);
 
   ws.onopen = async () => {
+    dbg("ws: open");
     setStatus("Finding the broadcaster…");
     try {
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
+      dbg("offer created · gathering ICE");
       await waitForIceGathering(pc);
+      dbg("ICE gathering complete");
       setStatus("Reaching the broadcaster…");
       ws.send(JSON.stringify({ type: "offer", sdp: pc.localDescription.sdp }));
-    } catch (err) { setStatus("Offer failed", true); }
+      dbg("offer sent");
+    } catch (err) { dbg("offer failed: " + err); setStatus("Offer failed", true); }
   };
   ws.onmessage = async (ev) => {
     const sig = await parseSignal(ev.data);
     if (!sig || sig.type !== "answer") return;
+    dbg("answer received");
     setStatus("Almost there…");
-    try { await pc.setRemoteDescription({ type: "answer", sdp: sig.sdp }); }
-    catch (err) { setStatus("Failed to connect", true); }
+    try { await pc.setRemoteDescription({ type: "answer", sdp: sig.sdp }); dbg("remote description set"); }
+    catch (err) { dbg("setRemoteDescription failed: " + err); setStatus("Failed to connect", true); }
   };
-  ws.onerror = () => setStatus("Signalling error", true);
-  ws.onclose = () => { if (stage.classList.contains("connecting")) setStatus("Broadcaster offline?", true); };
+  ws.onerror = () => { dbg("ws: error"); setStatus("Signalling error", true); };
+  ws.onclose = () => { dbg("ws: closed"); if (stage.classList.contains("connecting")) setStatus("Broadcaster offline?", true); };
 }
 
 /* ---------- Track toggles / switch camera ---------- */
@@ -505,6 +545,7 @@ function toggleRecording() {
 }
 
 function leave() {
+  if (dbgPanel) { dbgPanel.remove(); dbgPanel = null; }
   stopRecording(true);   // finalize the file without the stop chime; the end-call sound covers it
   if (ws) { try { ws.close(); } catch {} ws = null; }
   if (pc) { try { pc.close(); } catch {} pc = null; }

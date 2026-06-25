@@ -270,6 +270,34 @@ function setStatus(msg, isError = false) {
   statusEl.textContent = msg;
   statusEl.classList.toggle("error", isError);
 }
+
+/* ---------- Debug timing / overlay (append ?debug=true to the URL) ---------- */
+const DEBUG = new URLSearchParams(location.search).get("debug") === "true";
+let dbgPanel = null, dbgT0 = 0, dbgPrev = 0;
+function dbgInit() {
+  dbgT0 = dbgPrev = performance.now();
+  if (!DEBUG) return;
+  if (!dbgPanel) {
+    dbgPanel = document.createElement("div");
+    dbgPanel.id = "debugPanel";
+    dbgPanel.style.cssText =
+      "position:absolute;left:8px;top:calc(58px + env(safe-area-inset-top));z-index:20;" +
+      "max-width:84vw;max-height:42vh;overflow:auto;background:rgba(0,0,0,.74);" +
+      "border:1px solid rgba(255,255,255,.16);border-radius:10px;padding:8px 10px;" +
+      "font:11px/1.45 ui-monospace,monospace;color:#8dff9a;white-space:pre;backdrop-filter:blur(6px);";
+    document.body.appendChild(dbgPanel);
+  }
+  dbgPanel.textContent = "";
+}
+function dbg(label) {
+  const now = performance.now();
+  const since = now - dbgPrev, total = now - dbgT0;
+  dbgPrev = now;
+  const line = "+" + since.toFixed(0) + "ms  t=" + total.toFixed(0) + "ms  " + label;
+  console.log("[webrtcast]", line);
+  if (dbgPanel) { dbgPanel.textContent += line + "\n"; dbgPanel.scrollTop = dbgPanel.scrollHeight; }
+}
+
 function modeLabel() { return currentMode === "source" ? "Original (P2P)" : "Streamed"; }
 function paintMode() {
   modeChip.textContent = modeLabel();
@@ -376,6 +404,8 @@ async function start() {
   if (!topic) { codeInput.focus(); return; }
 
   startBtn.disabled = true;
+  dbgInit();
+  dbg("start: requesting camera/mic");
 
   // Camera/mic access requires a secure context (HTTPS or localhost). Over plain
   // http:// or file:// the browser hides navigator.mediaDevices entirely.
@@ -393,6 +423,7 @@ async function start() {
     alert("Could not access camera/mic.\n" + err);
     return;
   }
+  dbg("camera/mic ready");
   localV.srcObject = localStream;
   mainIsLocal = true; applyLayout(); applyMirror();
   updateTrackButtons();
@@ -407,27 +438,30 @@ async function start() {
   showControls();
 
   const url = SIGNAL_URL + (SIGNAL_URL.includes("?") ? "&" : "?") + "topic=" + encodeURIComponent(topic) + "&role=producer";
+  dbg("ws: connecting");
   ws = new WebSocket(url);
   // Announce presence; the recorder replies "rec-ready", which triggers our offer.
-  ws.onopen = () => { setStatus("Calling recorder · code " + topic); ws.send(JSON.stringify({ type: "cam-ready" })); };
+  ws.onopen = () => { dbg("ws: open · announcing cam-ready"); setStatus("Calling recorder · code " + topic); ws.send(JSON.stringify({ type: "cam-ready" })); };
   ws.onmessage = async (ev) => {
     const sig = await parseSignal(ev.data);
     if (!sig) return;
-    if (sig.type === "rec-ready") makeOffer();             // recorder is present → (re)offer
+    if (sig.type === "rec-ready") { dbg("rec-ready received"); makeOffer(); }             // recorder is present → (re)offer
     else if (sig.type === "answer") {
+      dbg("answer received");
       setStatus("Almost there…");
-      try { await pc.setRemoteDescription({ type: "answer", sdp: sig.sdp }); }
-      catch (err) { setStatus("Failed to connect", true); }
+      try { await pc.setRemoteDescription({ type: "answer", sdp: sig.sdp }); dbg("remote description set"); }
+      catch (err) { dbg("setRemoteDescription failed: " + err); setStatus("Failed to connect", true); }
     }
   };
-  ws.onerror = () => setStatus("Signalling error", true);
-  ws.onclose = () => { if (stage.classList.contains("show")) setStatus("Disconnected", true); };
+  ws.onerror = () => { dbg("ws: error"); setStatus("Signalling error", true); };
+  ws.onclose = () => { dbg("ws: closed"); if (stage.classList.contains("show")) setStatus("Disconnected", true); };
 }
 
 /* This device now initiates: build the connection and send the SDP offer. */
 async function makeOffer() {
   if (negotiating || (pc && pc.connectionState === "connected")) return;   // one offer at a time
   negotiating = true;
+  dbg("makeOffer: creating peer connection");
   setStatus("Recorder found · connecting…");
   if (pc) { try { pc.close(); } catch {} }
   pc = new RTCPeerConnection(ICE);
@@ -438,12 +472,14 @@ async function makeOffer() {
   dc.binaryType = "arraybuffer";
   dc.bufferedAmountLowThreshold = 1 * 1024 * 1024;
   dc.onbufferedamountlow = flushQueue;
-  dc.onopen = () => { dcSend({ t: "mode", mode: currentMode }); enableRecord(true); };
-  dc.onclose = () => { enableRecord(false); };
+  dc.onopen = () => { dbg("data channel open"); dcSend({ t: "mode", mode: currentMode }); enableRecord(true); };
+  dc.onclose = () => { dbg("data channel closed"); enableRecord(false); };
   dc.onmessage = onDcMessage;
 
-  pc.ontrack = (e) => { remoteV.srcObject = e.streams[0]; refreshPip(); };
+  pc.ontrack = (e) => { dbg("ontrack: recorder media arrived"); remoteV.srcObject = e.streams[0]; refreshPip(); };
+  pc.oniceconnectionstatechange = () => dbg("ICE state: " + pc.iceConnectionState);
   pc.onconnectionstatechange = () => {
+    dbg("pc state: " + pc.connectionState);
     if (pc.connectionState === "connected") setStatus("Recorder connected");
     if (["failed", "disconnected", "closed"].includes(pc.connectionState)) {
       remoteV.srcObject = null; refreshPip();
@@ -458,10 +494,14 @@ async function makeOffer() {
     localStream.getTracks().forEach((t) => pc.addTrack(t, localStream));
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
+    dbg("offer created · gathering ICE");
     await waitForIceGathering(pc);
+    dbg("ICE gathering complete");
     setStatus("Reaching the recorder…");
     ws.send(JSON.stringify({ type: "offer", sdp: pc.localDescription.sdp }));
+    dbg("offer sent");
   } catch (err) {
+    dbg("offer failed: " + err);
     setStatus("Offer failed", true);
     negotiating = false;
   }
@@ -661,6 +701,7 @@ function stop() {
       try { dcSend({ t: "rec", cmd: "stop" }); } catch {}
     }
   }
+  if (dbgPanel) { dbgPanel.remove(); dbgPanel = null; }
   resetRecordState();
   enableRecord(false);
   negotiating = false;
